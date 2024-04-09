@@ -16,6 +16,8 @@ function getWeatherData(city) {
     .then(response => response.json())
     .then(data => {
       displayWeather(data);
+
+     
       getForecast(city);
     })
     .catch(error => console.log('Error fetching weather data:', error));

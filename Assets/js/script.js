@@ -1,88 +1,218 @@
-document.getElementById('searchForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const city = document.getElementById('cityInput').value.trim();
-    if (city) {
-      getWeatherData(city);
-      addToHistory(city);
-      document.getElementById('cityInput').value = '';
-    }
-  });
-  
-  function getWeatherData(city) {
-    const apiKey = 'd2fbc1537d4d3c3dfad692246b76ced7';
-    const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
-  
-    fetch(apiUrl)
-      .then(response => response.json())
-      .then(data => {
-        displayWeather(data);
-  
-       
-        getForecast(city);
-      })
-      .catch(error => console.log('Error fetching weather data:', error));
+// global variables
+var apiKey = "d2fbc1537d4d3c3dfad692246b76ced7";
+var savedSearches = [];
+
+// make list of previously searched cities
+var searchHistoryList = function (cityName) {
+  $('.past-search:contains("' + cityName + '")').remove();
+
+  // create entry with city name
+  var searchHistoryEntry = $("<p>");
+  searchHistoryEntry.addClass("past-search");
+  searchHistoryEntry.text(cityName);
+
+  // create container for entry
+  var searchEntryContainer = $("<div>");
+  searchEntryContainer.addClass("past-search-container");
+
+  // append entry to container
+  searchEntryContainer.append(searchHistoryEntry);
+
+  // append entry container to search history container
+  var searchHistoryContainerEl = $("#search-history-container");
+  searchHistoryContainerEl.append(searchEntryContainer);
+
+  if (savedSearches.length > 0) {
+    // update savedSearches array with previously saved searches
+    var previousSavedSearches = localStorage.getItem("savedSearches");
+    savedSearches = JSON.parse(previousSavedSearches);
   }
-  
-  function getForecast(city) {
-    const apiKey = 'd2fbc1537d4d3c3dfad692246b76ced7';
-    const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
-  
-    fetch(apiUrl)
-      .then(response => response.json())
-      .then(data => displayForecast(data))
-      .catch(error => console.log('Error fetching forecast data:', error));
+
+  // add city name to array of saved searches
+  savedSearches.push(cityName);
+  localStorage.setItem("savedSearches", JSON.stringify(savedSearches));
+
+  // reset search input
+  $("#search-input").val("");
+};
+
+// load saved search history entries into search history container
+var loadSearchHistory = function () {
+  // get saved search history
+  var savedSearchHistory = localStorage.getItem("savedSearches");
+
+  // return false if there is no previous saved searches
+  if (!savedSearchHistory) {
+    return false;
   }
-  
-  function displayWeather(data) {
-    const { name, weather, main, wind } = data;
-    const iconUrl = `http://openweathermap.org/img/wn/${weather[0].icon}.png`;
-  
-    const weatherInfo = document.getElementById('weatherInfo');
-    weatherInfo.innerHTML = `
-      <div class="weather-card">
-        <h2>${name}</h2>
-        <p>Date: ${new Date().toLocaleDateString()}</p>
-        <p>Weather: ${weather[0].description}</p>
-        <img src="${iconUrl}" alt="${weather[0].description}">
-        <p>Temperature: ${main.temp} °C</p>
-        <p>Humidity: ${main.humidity} %</p>
-        <p>Wind Speed: ${wind.speed} m/s</p>
-      </div>
-    `;
+
+  // turn saved search history string into array
+  savedSearchHistory = JSON.parse(savedSearchHistory);
+
+  // go through savedSearchHistory array and make entry for each item in the list
+  for (var i = 0; i < savedSearchHistory.length; i++) {
+    searchHistoryList(savedSearchHistory[i]);
   }
-  
-  function displayForecast(data) {
-    const forecast = document.createElement('div');
-    forecast.classList.add('weather-card');
-  
-    data.list.forEach(item => {
-      const { dt_txt, weather, main, wind } = item;
-      const iconUrl = `http://openweathermap.org/img/wn/${weather[0].icon}.png`;
-  
-      forecast.innerHTML += `
-        <div class="forecast">
-          <div class="forecast-item">
-            <p>Date: ${new Date(dt_txt).toLocaleDateString()}</p>
-            <img src="${iconUrl}" alt="${weather[0].description}">
-            <p>Temperature: ${main.temp} °C</p>
-            <p>Humidity: ${main.humidity} %</p>
-            <p>Wind Speed: ${wind.speed} m/s</p>
-          </div>
-        </div>
-      `;
+};
+
+var currentWeatherSection = function (cityName) {
+  // get and use data from open weather current weather api end point
+  fetch(
+    `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${apiKey}`
+  )
+    // get response and turn it into objects
+    .then(function (response) {
+      return response.json();
+    })
+    .then(function (response) {
+      console.log(response);
+      // get city's longitude and latitude
+      // var cityLon = response.coord.lon;
+      // var cityLat = response.coord.lat;
+      console.log(apiKey);
+
+      // fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${cityLat}&lon=${cityLon}&exclude=minutely,hourly,alerts&units=imperial&appid=d2fbc1537d4d3c3dfad692246b76ced7`)
+      //     // get response from one call api and turn it into objects
+      //     .then(function(response) {
+      //         return response.json();
+      //     })
+      //     // get data from response and apply them to the current weather section
+      //     .then(function(response){
+      //         console.log(response);
+
+      searchHistoryList(response.name);
+
+      // add current weather container with border to page
+      var currentWeatherContainer = $("#current-weather-container");
+      currentWeatherContainer.addClass("current-weather-container");
+
+      // add city name, date, and weather icon to current weather section title
+      var currentTitle = $("#current-title");
+      var currentDay = moment().format("M/D/YYYY");
+      currentTitle.text(`${cityName} (${currentDay})`);
+      var currentIcon = $("#current-weather-icon");
+      currentIcon.addClass("current-weather-icon");
+      var currentIconCode = response.weather[0].icon;
+      currentIcon.attr(
+        "src",
+        `https://openweathermap.org/img/wn/${currentIconCode}@2x.png`
+      );
+
+      // add current temperature to page
+      var currentTemperature = $("#current-temperature");
+      currentTemperature.text(
+        "Temperature: " + response.main.temp + " \u00B0F"
+      );
+
+      // add current humidity to page
+      var currentHumidity = $("#current-humidity");
+      currentHumidity.text("Humidity: " + response.main.humidity + "%");
+
+      // add current wind speed to page
+      var currentWindSpeed = $("#current-wind-speed");
+      currentWindSpeed.text("Wind Speed: " + response.wind.speed + " MPH");
+
+      // add uv index to page
+      // var currentUvIndex = $("#current-uv-index");
+      // currentUvIndex.text("UV Index: ");
+      // var currentNumber = $("#current-number");
+      // currentNumber.text(response.current.uvi);
+
+      // add appropriate background color to current uv index number
+      // if (response.current.uvi <= 2) {
+      //     currentNumber.addClass("favorable");
+      // } else if (response.current.uvi >= 3 && response.current.uvi <= 7) {
+      //     currentNumber.addClass("moderate");
+      // } else {
+      //     currentNumber.addClass("severe");
+      // }
+      // })
+    })
+    .catch(function (err) {
+      // reset search input
+      $("#search-input").val("");
+
+      // alert user that there was an error
+      alert(
+        "We could not find the city you searched for. Try searching for a valid city."
+      );
     });
-  
-    const weatherInfo = document.getElementById('weatherInfo');
-    weatherInfo.appendChild(forecast);
-  }
-  
-  function addToHistory(city) {
-    const searchHistory = document.getElementById('searchHistory');
-    const historyItem = document.createElement('div');
-    historyItem.textContent = city;
-    historyItem.classList.add('history-item');
-    historyItem.addEventListener('click', () => {
-      getWeatherData(city);
+};
+
+var fiveDayForecastSection = function (cityName) {
+  // get and use data from open weather current weather api end point
+  fetch(
+    `https://api.openweathermap.org/data/2.5/forecast?q=${cityName}&appid=${apiKey}`
+  )
+    // get response and turn it into objects
+    .then(function (response) {
+      return response.json();
+    })
+    .then(function (response) {
+        console.log(response);
+        var forecastdata = response.list;
+      // add 5 day forecast title
+      var futureForecastTitle = $("#future-forecast-title");
+      futureForecastTitle.text("5-Day Forecast:");
+
+      // using data from response, set up each day of 5 day forecast
+      for (var i = 0; i <= forecastdata.length; i += 8) {
+        // add class to future cards to create card containers
+        var futureCard = $(".future-card");
+        futureCard.addClass("future-card-details");
+
+        // add date to 5 day forecast
+        var futureDate = $("#future-date-" + i);
+        date = moment().add(i, "d").format("M/D/YYYY");
+        futureDate.text(date);
+
+        // add icon to 5 day forecast
+        var futureIcon = $("#future-icon-" + i);
+        futureIcon.addClass("future-icon");
+        var futureIconCode = forecastdata[i].weather[0].icon;
+        futureIcon.attr(
+          "src",
+          `https://openweathermap.org/img/wn/${futureIconCode}@2x.png`
+        );
+
+        // add temp to 5 day forecast
+        var futureTemp = $("#future-temp-" + i);
+        futureTemp.text("Temp: " + forecastdata[i].main.temp + " \u00B0F");
+
+        // add humidity to 5 day forecast
+        var futureHumidity = $("#future-humidity-" + i);
+        futureHumidity.text("Humidity: " + forecastdata[i].main.humidity + "%");
+      }
     });
-    searchHistory.appendChild(historyItem);
+};
+
+// called when the search form is submitted
+$("#search-form").on("submit", function (event) {
+  event.preventDefault();
+
+  // get name of city searched
+  var cityName = $("#search-input").val();
+
+  if (cityName === "" || cityName == null) {
+    // send alert if search input is empty when submitted
+    alert("Please enter the name of a city.");
+  } else {
+    // if cityName is valid, add it to search history list and display its weather conditions
+    currentWeatherSection(cityName);
+    fiveDayForecastSection(cityName);
   }
+});
+
+// called when a search history entry is clicked
+$("#search-history-container").on("click", "p", function () {
+  // get text (city name) of entry and pass it as a parameter to display weather conditions
+  var previousCityName = $(this).text();
+  currentWeatherSection(previousCityName);
+  fiveDayForecastSection(previousCityName);
+
+  //
+  var previousCityClicked = $(this);
+  previousCityClicked.remove();
+});
+
+loadSearchHistory();
